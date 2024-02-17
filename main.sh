@@ -55,7 +55,6 @@ case "${result,,}" in
        		        zenity --text-info --title="Successful" \
        		        --height 400 --width 600 --font="Arial 20"
                         connected=$db_name;
-                        echo $connected;
                     else
                         echo "Wrong Database Name" |
        		        zenity --text-info --title="ERROR" \
