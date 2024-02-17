@@ -1,3 +1,11 @@
 name:varchar(50):
 id:int:primary key
 bod:varchar(100):
+name:varchar(10):
+id:int:primary key
+name:varchar(10):
+id:int:primary key
+name:varchar(10):
+id:int:primary key
+name:varchar(10):
+id:int:primary key
