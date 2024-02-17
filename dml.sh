@@ -20,6 +20,44 @@ check_select(){
 	echo "Conditions: $conditions"
 }
 
+Check_create(){
+    meta_file="databases/$connected/.${table_name}.meta"
+    touch "$meta_file"
+    count=0
+    data_type_pattern="int|varchar[[:space:]]*\([0-9]{1,3}\)[[:space:]]*"
+    IFS=',' read -ra columns_array <<< "$@"
+    for column in "${columns_array[@]}"; do
+
+        name=$(echo "$column" | awk '{print $1}')
+        data_type=$(echo "$column" | awk '{print $2}')
+        constraint=$(echo "$column" | awk '{print $3 " " $4}')
+
+        echo $data_type;
+        if [[ ! -z $constraint ]] && [[ $constraint = "primary key" ]]; then
+           (( count++ ))
+        else
+            constraint="";
+        fi
+        if [[ $data_type =~ $data_type_pattern ]]; then
+            data_type=$(echo "$data_type" | grep -oE "$data_type_pattern")
+            echo "$name:$data_type:$constraint" >> "$meta_file"
+        else
+            echo dddddddd;
+            rm -f "$meta_file"
+            return 1
+        fi
+
+    done
+
+        if [ ! $count -eq 1 ]; then
+            echo "promary key error"
+            rm -f "$meta_file"
+            return 1
+        else
+            return 0
+        fi
+}
+
     if [ -z $connected ]
     then
        echo -e "PLease Connect to database first \n ex : 'use' my_database , $1" |
@@ -33,6 +71,35 @@ check_select(){
         "delete from "*)
             ;;
         "drop table "*)
+            ;;
+        "create table "*)
+              pattern="^create table [[:alpha:]]+[[:space:]]*\([[:space:]]*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key)?,[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?,[[:space:]]*)*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*)\);?$"
+        
+		if [[ ! $@ =~ $pattern ]]; then
+		    echo "Doesn't Match"
+		    return 1
+		fi
+
+		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f3 )
+		table_name=$(echo "$table_name" | awk '{gsub("\\(", ""); print}')
+		
+
+		if [ -e $table_name.txt ]; then
+		    echo "Table Already Exists"
+		    return 1 ;
+		else
+		   columns=$(echo -e "$@" | tr '\n' ' '| cut -d '(' -f2-)
+
+		    Check_create $columns ;
+		    if [ $? -eq 0 ]; then
+		       touch databases/$connected/$table_name.txt ;
+		       echo "Table Created Successfully"
+		    else
+		        rm -f databases/$connected/$table_name.txt;
+		        echo "Failed To Create Table"
+		    fi   
+		fi
+		
             ;;
         "select "*)
             check_select $@
