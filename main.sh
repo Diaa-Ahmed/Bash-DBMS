@@ -63,7 +63,7 @@ case "${result,,}" in
                     fi
                     ;;
 *)
-		    source ./dml.sh $result ;
+		    source ./ddl.sh $result ;
 		    if [ ! $? -eq 0 ] 
 		    then
 		       # Display dialog with result

@@ -70,8 +70,6 @@ Check_create(){
             ;;
         "delete from "*)
             ;;
-        "drop table "*)
-            ;;
         "create table "*)
               pattern="^create table [[:alpha:]]+[[:space:]]*\([[:space:]]*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key)?,[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?,[[:space:]]*)*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*)\);?$"
         
@@ -103,6 +101,38 @@ Check_create(){
             ;;
         "select "*)
             check_select $@
+            return 0
+            ;;
+         "drop table "*)
+             # Extract table name from the user input
+	     table_name=$(echo $@ | awk '{print $3}')
+	     echo $@ ;
+	     echo $table_name;
+	     # Check if the table file exists
+	     if [ -f "databases/$connected/$table_name" ]; then
+	      # Remove the table file and its meta data
+	      rm -f "databases/$connected/$table_name"
+	      rm -f "databases/$connected/.${table_name}.meta"
+	      # Display dialog with result
+	      echo "Table $table_name is dropped!" | zenity --text-info --title="Successful" \
+	      --height 400 --width 600 --font="Arial 20"
+	     else
+	      # Table file not found
+	      echo "Table $table_name not found!" | zenity --text-info --title="ERROR" \
+	      --height 400 --width 600 --font="Arial 20"
+	     fi
+	     return 0        
+            ;;
+            
+        "show tables"*)  
+            # shopt -s extglob # Enable extended pattern matching
+            # list all files in database dir
+            tables=$(ls databases/$connected/ ) #!(*_meta) | xargs -n1 basename)
+            echo $tables
+            # Display dialog with databases
+            echo "$tables" | zenity --text-info --title="Tables" \
+            --height 400 --width 600 --font="Arial 20"
+            # shopt -u extglob # Disable extended pattern matching
             return 0
             ;;
         *) 
