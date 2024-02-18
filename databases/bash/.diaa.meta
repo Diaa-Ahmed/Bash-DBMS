@@ -1,3 +1,2 @@
-name:varchar(25):
-id:int:primary key
-dob:varchar(50):
+track:varchar(255):primary key
+intake:int:

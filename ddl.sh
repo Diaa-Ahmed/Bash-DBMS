@@ -50,7 +50,7 @@ then
 else
     	case $@ in
         "create table "*)
-            pattern="^create table [[:alpha:]]+[[:space:]]*\([[:space:]]*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key)?,  [[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?,[[:space:]]*)*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*)\);?$"
+            pattern="^create table [[:alpha:]]+[[:space:]]*\([[:space:]]*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key[[:space:]]*)?,[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?,[[:space:]]*)*([[:alpha:]]*[[:space:]]+int[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*|[[:alpha:]]*[[:space:]]+varchar\([0-9]{1,3}\)[[:space:]]*( primary key[[:space:]]*)?[[:space:]]*)\);?$"
         
             table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f3 )
 	    table_name=$(echo "$table_name" | awk '{gsub("\\(", ""); print}')
