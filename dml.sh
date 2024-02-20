@@ -35,6 +35,42 @@ Check_insert(){
 	return 0
     fi   
 }
+Check_update(){
+    table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f2 )
+    echo $table_name ;
+    file="databases/$connected/${table_name}"
+    column_names_file="databases/$connected/.${table_name}.meta"
+    column_names=$(echo "$update_query" | grep -oP '(?<=set |,)[^=,]+(?= =|\b)|(?<=where )[^=,]+(?=$|\b)' | tr -d ' ')
+    column_values=$(echo "$update_query" | grep -oP '(?<== )[a-zA-Z0-9]+(?=,|\b)|(?<=where id = )[0-9]+(?= |\b|$)' | tr -d ' ')
+    columns_count=$(echo "$column_names" | wc -l)
+    values_count=$(echo "column_values" | wc -l)
+    count=0
+    count2=1
+    while IFS= read -r column; do
+    	if grep -q "$column:" $column_names_file; then
+        	echo "$column exists in the file"
+    	else
+        	echo "$column does not exist in the file"
+        	((count++))
+    	fi
+    done <<< "$column_names"
+
+    if [ $columns_count -ne $values_count && $columns_count -gt 0 ]; then
+    	echo "Error: Number of columns do not match number of values."
+    	zenity --notification --window-icon="ERROR" --text="Number of columns does not match number of values!"
+    	return 1
+    elif [ $count -gt 0 && $columns_count -gt 0 ]; then
+    	echo "Error: Columns do not match the meta data!"
+    	zenity --notification --window-icon="ERROR" --text="Columns do not match the meta data!"
+    	return 1
+    else 
+    	formatted_values=$(echo "$values" | tr '\n' ':')
+	formatted_values=${formatted_values::-1}
+	echo $formatted_values
+	echo "$formatted_values" >> $file
+	return 0
+    fi   
+}
 
 check_delete(){
     
