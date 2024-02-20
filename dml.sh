@@ -35,41 +35,137 @@ Check_insert(){
 	return 0
     fi   
 }
-Check_update(){
-    table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f2 )
-    echo $table_name ;
-    file="databases/$connected/${table_name}"
-    column_names_file="databases/$connected/.${table_name}.meta"
-    column_names=$(echo "$update_query" | grep -oP '(?<=set |,)[^=,]+(?= =|\b)|(?<=where )[^=,]+(?=$|\b)' | tr -d ' ')
-    column_values=$(echo "$update_query" | grep -oP '(?<== )[a-zA-Z0-9]+(?=,|\b)|(?<=where id = )[0-9]+(?= |\b|$)' | tr -d ' ')
-    columns_count=$(echo "$column_names" | wc -l)
-    values_count=$(echo "column_values" | wc -l)
-    count=0
-    count2=1
-    while IFS= read -r column; do
-    	if grep -q "$column:" $column_names_file; then
-        	echo "$column exists in the file"
-    	else
-        	echo "$column does not exist in the file"
-        	((count++))
-    	fi
-    done <<< "$column_names"
 
-    if [ $columns_count -ne $values_count && $columns_count -gt 0 ]; then
-    	echo "Error: Number of columns do not match number of values."
-    	zenity --notification --window-icon="ERROR" --text="Number of columns does not match number of values!"
-    	return 1
-    elif [ $count -gt 0 && $columns_count -gt 0 ]; then
-    	echo "Error: Columns do not match the meta data!"
-    	zenity --notification --window-icon="ERROR" --text="Columns do not match the meta data!"
-    	return 1
-    else 
-    	formatted_values=$(echo "$values" | tr '\n' ':')
-	formatted_values=${formatted_values::-1}
-	echo $formatted_values
-	echo "$formatted_values" >> $file
-	return 0
-    fi   
+Check_update(){
+    
+    if [[ ! $@ =~ $pattern ]]; 
+    then
+        echo "Wrong Syntax"
+        return 1;
+    fi
+    # check if the pattern in fully matched not partially
+	matched_part=$(echo "$@" | grep -oE "$pattern")
+    if [[ ! $matched_part = $@ ]];
+    then
+       echo "Partially Wrong Syntax"
+       return 0;
+    fi 
+    ####
+    table=$(echo $@ | awk -F ' ' '{print $2}' )
+    updating=$(echo $@ | awk -F ' set ' '{print $2}' | awk -F ' where ' '{print $1}' )
+    conditions=$(echo $@ | awk -F ' where ' '{print $2}')
+
+    if [ -f databases/$connected/$table ];then
+
+    # create a Look up table for col and their order in table
+
+    declare -A lookup_table
+    i=1;
+     while IFS= read -r meta; do
+        col_meta=$(echo $meta | awk -F ':' '{print $1}')
+        data_type_meta=$(echo $meta | awk -F ':' '{print $2}')
+        lookup_table["$col_meta"]="$i":"$data_type_meta"
+        ((i++))
+    done < <(cat databases/$connected/.$table.meta)
+    
+    # check and collect data from 'where' condition
+
+    split=$(echo "$conditions" | awk -v RS=' and ' '{print $1}')
+    for cond in $split;
+    do
+        key=$(echo $cond | awk -F '=' '{print $1}')
+        value=$(echo $cond | awk -F '=' '{gsub(";", "");print $2}')
+        if [[ $value =~ ^\' ]]; then
+            type=varchar;
+        else
+            type=int
+        fi
+        value=$(echo $value | awk '{gsub("'\''", "");print $0}')
+
+        ## check if column exist
+        flag=${lookup_table[$key]};
+        if [ -z $flag ]; then
+            echo "column doesn't exist"
+            exit;
+        else
+            ## check datatype 
+            type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
+            if [ ! $type_meta = $type ];then
+                echo "Datatype doesn't match for column '$key'"
+                exit;
+            fi
+            ####
+        fi
+        ####   
+        # save columns
+        val=$(echo "$flag" | awk -F ':' '{print $1}')
+        cond_cols=$cond_cols"$val "
+        cond_cols_values=$cond_cols_values"$value "
+    done
+    cond_cols="${cond_cols%?}"
+
+    # check and collect data from 'Set' 
+
+    split=$(echo "$updating" | awk -v RS=',' '{print $1}')
+    for cond in $split;
+    do
+        key=$(echo $cond | awk -F '=' '{print $1}')
+        value=$(echo $cond | awk -F '=' '{gsub(";", "");print $2}')
+        if [[ $value =~ ^\' ]]; then
+            type=varchar;
+        else
+            type=int
+        fi
+        value=$(echo $value | awk '{gsub("'\''", "");print $0}')
+
+        ## check if column exist
+        flag=${lookup_table[$key]};
+        if [ -z $flag ]; then
+            echo "column doesn't exist"
+            exit;
+        else
+            ## check datatype 
+            type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
+            if [ ! $type_meta = $type ];then
+                echo "Datatype doesn't match for column '$key'"
+                exit;
+            fi
+            ####
+        fi
+        ####   
+        # save columns
+        val=$(echo "$flag" | awk -F ':' '{print $1}')
+        update_cols=$update_cols"$val "
+        update_cols_values=$update_cols_values"$value "
+    done
+    update_cols="${update_cols%?}"
+
+    # Update records 
+    awk -v cond_cols="$cond_cols" -v cond_cols_values="$cond_cols_values" -v update_cols="$update_cols" -v update_cols_values="$update_cols_values" 'BEGIN{FS=":"; OFS=":"}
+    {
+        split(cond_cols, cols, " ");
+        split(cond_cols_values, vals, " ");
+
+        split(update_cols, upcol, " ");
+        split(update_cols_values, upvals, " ");
+
+        match_count = 0;
+        for (i = 1; i <= length(cols); i++) {
+            if ($cols[i] == vals[i]) {
+                match_count++;
+            }
+        }
+        if (match_count == length(cols))
+        {
+            for (i = 1; i <= length(upcol); i++) {
+               $upcol[i] = upvals[i];
+            }
+        }
+        print
+    }' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
+    else
+        echo "table doesn't exist"
+    fi
 }
 
 check_delete(){
@@ -383,7 +479,7 @@ if [ -z $connected ]
 		check_select $@
     		;;
     	"update "*)
-		pattern="update[[:space:]]+[[:alpha:]_]+[[:space:]]+set[[:space:]]+[^[:space:]]*[[:space:]]*=([[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)(,[[:space:]]*[^[:space:]]+[[:space:]]*=[[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)*where[[:space:]]+[[:alpha:]_]+[[:space:]]*=[[:space:]]*[^[:space:]]+[[:space:]]*;?"
+		pattern="update[[:space:]]+[[:alpha:]_]+[[:space:]]+set[[:space:]]+[^[:space:]]*[[:space:]]*=([[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)(,[[:space:]]*[^[:space:]]+[[:space:]]*=[[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)*(where[[:space:]]+[[:alpha:]_]+[[:space:]]*=[[:space:]]*[^[:space:]]+[[:space:]]*)?;?"
     		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f2 )
     		echo $table_name
 		if [[ ! $@ =~ $pattern ]]; then	
