@@ -319,7 +319,7 @@ if [ -z $connected ]
     else
     	case $@ in
     	"insert into "*)
-		pattern="^insert[[:space:]]+into[[:space:]]+[[:alpha:]_]+[[:space:]]*(\([[:space:]]*[[:alpha:]_]+[[:space:]]*(,[[:space:]]*[[:alpha:]_]+[[:space:]]*)*\))?[[:space:]]*values[[:space:]]*\([[:space:]]*('[^']*'|[^[:space:]]+)[[:space:]]*(,[[:space:]]*[^[:space:]]+[[:space:]]*)*\);?"
+		pattern="insert[[:space:]]+into[[:space:]]+[[:alpha:]_]+[[:space:]]*(\([[:space:]]*[[:alpha:]_]+[[:space:]]*(,[[:space:]]*[[:alpha:]_]+[[:space:]]*)*\))?[[:space:]]*values[[:space:]]*\(([[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)|(,[[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)*\);?"
 
 		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f3 )
 		if [[ ! $@ =~ $pattern ]]; then	
@@ -347,6 +347,29 @@ if [ -z $connected ]
 		check_select $@
     		;;
     	"update "*)
+		pattern="update[[:space:]]+[[:alpha:]_]+[[:space:]]+set[[:space:]]+[^[:space:]]*[[:space:]]*=([[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)(,[[:space:]]*[^[:space:]]+[[:space:]]*=[[:space:]]*('[[:alnum:]_ ]+'|[0-9]+)[[:space:]]*)*where[[:space:]]+[[:alpha:]_]+[[:space:]]*=[[:space:]]*[^[:space:]]+[[:space:]]*;?"
+    		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f2 )
+    		echo $table_name
+		if [[ ! $@ =~ $pattern ]]; then	
+	         	echo "Doesn't Match"
+	         	zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
+	         	echo "Failed To Update Table!" | zenity --text-info --title="ERROR" \
+	      	    		--height 400 --width 600 --font="Arial 20"
+	      	elif [ ! -f $"databases/$connected/$table_name" ]; then
+		 	echo "Table Does not Exists"
+	         	zenity --notification --window-icon="ERROR" --text="Table Does Not Exists"
+	        else 
+	        	Check_update $@ ;
+	         	if [ $? -eq 0 ]; then
+		     		echo "Updated Successfully"
+		     		echo "Updated Successfully!" | zenity --text-info --title="Successful" \
+	      			--height 400 --width 600 --font="Arial 20"
+		 	else 
+		     		echo "Failed To Update"
+		     		echo "Failed To Update" | zenity --text-info --title="ERROR" \
+	      			--height 400 --width 600 --font="Arial 20"		
+		 	fi 
+	      	fi
     		;;
     	"delete from "*)
     		check_delete $@
