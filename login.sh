@@ -10,7 +10,7 @@ username=$(echo "$user_info" | cut -d '|' -f 1)
 password=$(echo "$user_info" | cut -d '|' -f 2)
 
 if [ "$username" = 'Diaa' ] && [ "$password" = '123' ]; then
-    ./main.sh
+    ./guidelines.sh
 else
     zenity --error --text="Invalid Username or Password"
 fi
