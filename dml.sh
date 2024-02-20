@@ -2,7 +2,6 @@
 
 Check_insert(){
     table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f3 )
-    echo $table_name ;
     file="databases/$connected/${table_name}"
     column_names_file="databases/$connected/.${table_name}.meta"
     column_names=$(echo $@ | sed -n 's/.*(\(.*\)) values.*/\1/p' | tr -d ' ' | tr ',' '\n')
@@ -37,29 +36,281 @@ Check_insert(){
     fi   
 }
 
-
-
-check_select(){
-	command=$(echo $@ | awk '{print $1}')
-	columns=$(echo $@ | awk -F ' from ' '{print $1}'| cut -d ' ' -f 2-)
-
-	table=$(echo $@ | awk -F ' from ' '{print $2}' | awk '{print $1}')
+check_delete(){
+    
+    pattern="delete[[:space:]]+from[[:space:]]+[[:alpha:]]+([[:space:]]+where[[:space:]]+[[:alpha:]_]+=([0-9]+|'[[:alnum:]_ ]+')([[:space:]]+(and|or)[[:space:]]+[[:alpha:]]+=('[[:alnum:]_ ]+'|[0-9]+))*[[:space:]]*)?;?"
+    if [[ ! $@ =~ $pattern ]]; 
+    then
+        echo "Wrong Syntax"
+        return 1;
+    fi
+    # check if the pattern in fully matched not partially
+    matched_part=$(echo "$@" | grep -oE "$pattern")
+    if [[ ! $matched_part = $@ ]];
+    then
+       echo "Partially Wrong Syntax"
+       return 0;
+    fi 
+    ####
+	table=$(echo $@ | awk -F ' ' '{print $3}' )
 	conditions=$(echo $@ | awk -F ' where ' '{print $2}')
 
-	# Printing the extracted parts
-	# columns=$(echo "$columns" | awk '{$1=$1};1')	
-	
-	if [ $columns = 'all' ]
-	then
-	    echo "Columns: All"
-	else
-	    echo "Columns: $columns"
-	fi
-	
-	echo "Table: $table"
-	echo "Conditions: $conditions"
+    if [ -f databases/$connected/$table ];then
+        if [[ -z $conditions ]];then
+             > databases/$connected/$table ;
+            return 0;
+        fi
+    # create a Look up table for col and their order in table
+
+    declare -A lookup_table
+    i=1;
+     while IFS= read -r meta; do
+        col_meta=$(echo $meta | awk -F ':' '{print $1}')
+        data_type_meta=$(echo $meta | awk -F ':' '{print $2}')
+        lookup_table["$col_meta"]="$i":"$data_type_meta"
+        ((i++))
+    done < <(cat databases/$connected/.$table.meta)
+    
+    # check and collect data from 'where' condition
+
+    split=$(echo "$conditions" | awk -v RS=' and ' '{print $1}')
+    for cond in $split;
+    do
+        key=$(echo $cond | awk -F '=' '{print $1}')
+        value=$(echo $cond | awk -F '=' '{gsub(";", "");print $2}')
+        if [[ $value =~ ^\' ]]; then
+            type=varchar;
+        else
+            type=int
+        fi
+        value=$(echo $value | awk '{gsub("'\''", "");print $0}')
+
+        ## check if column exist
+        flag=${lookup_table[$key]};
+        if [ -z $flag ]; then
+            echo "column doesn't exist"
+            exit;
+        else
+            ## check datatype 
+            type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
+            if [ ! $type_meta = $type ];then
+                echo "Datatype doesn't match for column '$key'"
+                exit;
+            fi
+            ####
+        fi
+        ####   
+        # save columns
+        val=$(echo "$flag" | awk -F ':' '{print $1}')
+        target_cols=$target_cols"$val "
+        cols_values=$cols_values"$value "
+    done
+    target_cols="${target_cols%?}"
+
+    # delete records 
+    awk -v target_cols="$target_cols" -v cols_values="$cols_values" 'BEGIN{FS=":"; OFS=":"}
+    {
+        split(target_cols, cols, " ");
+        split(cols_values, vals, " ");
+        match_count = 0;
+        for (i = 1; i <= length(cols); i++) {
+            if ($cols[i] == vals[i]) {
+                match_count++;
+            }
+        }
+        if (match_count != length(cols))
+            print
+    }' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
+
+    else
+        echo "table doesn't exist"
+    fi
 }
 
+print_data(){
+    # Extract arguments
+	zenity_cmd="zenity --list --height 400 --width 600 --title='Output Data'"
+
+	# Add columns to the Zenity command
+	IFS=',' read -r -a cols <<< "$columns"
+	for col in "${cols[@]}"; do
+		zenity_cmd+=" --column='$col'"
+	done
+
+	# Add values to the Zenity command
+	   while IFS=$'\n' read -r record; do
+                OLD_IFS=$IFS
+		IFS=':'
+		val=""
+		for col in $record; do
+		   col=$(echo "$col" | awk '{$1=$1};1')
+		   val+="\"$col\" "
+		done
+		zenity_cmd+=" $val"
+		IFS=$OLD_IFS
+         done < <(echo "$output")
+	# Execute the Zenity command
+	eval "$zenity_cmd"
+}
+
+check_select(){
+    pattern="select[[:space:]]+(\*|([[:space:]]*[[:alpha:]]+[[:space:]]*,)*[[:space:]]*[[:alpha:]]+[[:space:]]*)[[:space:]]+from[[:space:]]+[[:alpha:]]*[[:space:]]*([[:space:]]+where[[:space:]]+[[:alpha:]]*=('[[:alnum:]_ ]*'|[0-9]*)([[:space:]]+(and|or)[[:space:]]+[[:alpha:]]+=('[[:alnum:]_ ]*'|[0-9]*))*)?[[:space:]]*;?$"
+
+    if [[ ! $@ =~ $pattern ]]; 
+    then
+        echo "Wrong Syntax"
+        return 1;
+    fi
+
+    # check if the pattern in fully matched not partially
+    matched_part=$(echo "$@" | grep -oE "$pattern")
+    if [[ ! $matched_part = $@ ]];
+    then
+       echo "Partially Wrong Syntax"
+       return 0;
+    fi 
+    ####
+    
+	command=$(echo $@ | awk '{print $1}')
+	columns=$(echo $@ | awk -F ' from ' '{print $1}'| cut -d ' ' -f 2-)
+	table=$(echo $@ | awk -F ' from ' '{print $2}' | awk '{print $1}')
+	table=$(echo "$table" | awk '{gsub(";", ""); print}')
+	conditions=$(echo $@ | awk -F ' where ' '{print $2}')
+	
+	# columns=$(echo "$columns" | awk '{$1=$1};1')	
+
+    if [ -f "databases/$connected/$table" ];then
+
+    # create a Look up table for col and their order in table
+    	all_cols="";
+        declare -A lookup_table
+        i=1;
+        while IFS= read -r meta; do
+            col_meta=$(echo $meta | awk -F ':' '{print $1}')
+            data_type_meta=$(echo $meta | awk -F ':' '{print $2}')
+            lookup_table["$col_meta"]="$i":"$data_type_meta"
+            all_cols="$all_cols$col_meta ,"
+            ((i++))
+        done < <(cat "databases/$connected/.$table.meta")
+        all_cols="${all_cols%?}"
+
+    # check and collect data from 'where' condition 
+
+    split=$(echo "$conditions" | awk -v RS=' and ' '{print $1}')
+    for cond in $split;do
+        key=$(echo $cond | awk -F '=' '{print $1}')
+        value=$(echo $cond | awk -F '=' '{gsub(";", "");print $2}')
+        if [[ $value =~ ^\' ]]; then
+            type=varchar;
+        else
+            type=int
+        fi
+        value=$(echo $value | awk '{gsub("'\''", "");print $0}')
+
+        ## check if column exist
+        flag=${lookup_table[$key]};
+        if [ -z $flag ]; then
+            echo "column doesn't exist"
+            return;
+        else
+            ## check datatype 
+            type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
+            if [ ! $type_meta = $type ];then
+                echo "Datatype doesn't match for column '$key'"
+                exit;
+            fi
+            ####
+        fi
+        ####
+    done
+
+    #######################################
+    # check if requested column available or not ( in case if not select * ) and keep record of them in $target_cols
+    if [[ ! "$columns" = 'all' ]]; then
+        target_cols=""
+        OLD_IFS=$IFS
+        IFS=','
+        for col in $columns; do
+            col=$(echo "$col" | awk '{$1=$1};1')
+            flag=${lookup_table[$col]}
+            if [ -z "$flag" ]; then
+                echo "column doesn't exist"
+                exit 1
+            fi
+            val=$(echo "$flag" | awk -F ':' '{print $1}')
+            target_cols=$target_cols"$val "
+        done
+        target_cols="${target_cols%?}"
+        IFS=$OLD_IFS
+    fi
+    ######################################
+    # Getting Data
+    flag=0;
+    data_source="databases/$connected/$table";
+      ## check if there no conditions then select all data
+    if [ -z "$conditions" ]; then
+        output=$(cat "$data_source");
+    else
+        for cond in $split ; do
+
+            col_name=$(echo $cond | awk -F '=' '{print $1}')
+            col_index=$(echo "${lookup_table[$col_name]}" | awk -F ':' '{print $1}')
+            col_value=$(echo $cond | awk -F '=' '{gsub(";", "");gsub("'\''", "");print $2}')
+            if [ $flag -eq 0 ]; then
+                output=$(cat "$data_source" | awk -v col="$col_index" -v val="$col_value" -F ':' '
+                BEGIN {}
+                {
+                    if($col == val) {
+                        print
+                    }
+                }
+            ')
+                data_source=$output
+                ((flag++))
+                continue;
+            fi
+            output=$(echo "$data_source" | awk -v col="$col_index" -v val="$col_value" -F ':' '
+                BEGIN {}
+                {
+                    if($col == val) {
+                        print
+                    }
+                }
+            ')
+        done
+    fi
+    ######################################
+    # Display Data
+
+    if [[ ! "$columns" = 'all' ]]; then
+       output=$(echo "$output" | awk -v target_cols="$target_cols" 'BEGIN{FS=":";OFS=":"}{
+        split(target_cols, cols, " "); 
+        concat=""
+        for (i = 1; i <= length(cols); i++) {
+            if ( i == length(cols) )
+            {
+                concat = concat $cols[i]
+            }
+            else
+                concat = concat $cols[i] ":"
+        }   
+        print concat
+    }')
+    else
+    	columns=$all_cols;
+    fi
+    
+    echo $columns 
+    echo $output
+    print_data $columns $output
+    ######################################
+    else
+        echo "table doesn't exist"
+    fi
+}
+
+###################################################
+###################################################
 if [ -z $connected ]
     then
        echo -e "PLease Connect to database first \n ex : 'use' my_database , $1" |
@@ -93,10 +344,12 @@ if [ -z $connected ]
 	        fi
 		;;
     	"select "*)
+		check_select $@
     		;;
     	"update "*)
     		;;
     	"delete from "*)
+    		check_delete $@
     		;;
     	*)
     		;;
