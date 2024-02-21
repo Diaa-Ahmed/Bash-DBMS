@@ -12,13 +12,13 @@ This is a simple Database Management System (DBMS) implemented in Bash Shell Scr
 ## Main Users
 The following are the main users of the program and their credentials
 
-### Diaa
+### Diaa Ahmed
 
 > Diaa
 
 > 123
 
-### Mo
+### Mohamed Saeed
 
 > Mo
 
