@@ -42,9 +42,8 @@ Check_create(){
 
 if [ -z $connected ]
 then
-
     echo -e "PLease Connect to database first \n ex : 'use' my_database , $1" |
-    zenity --text-info --title="ERROR" --height 400 --width 600 --font="Arial 20"
+       zenity --text-info --title="ERROR" --height 400 --width 600 --font="Arial 20"
     return 0
     
 else

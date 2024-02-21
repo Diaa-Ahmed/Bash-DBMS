@@ -1,0 +1,32 @@
+-----------Main---------
+1 - list all databases => show databases ;
+2 - to add database => create database db_name ;
+3 - to delete database => drop database db_name ; 
+## any syntax error in this stage do not have alert ## ** it handeled **
+4 - must connect to database before any ddls and dmls
+5 - to connect to database => use db_name ;## do not have syntax error but the connect error raised ** handeled **
+----------DDL--------------
+6 - list all tables in database => show tables ;
+7 - to delete a table => drop table table_name ;
+8 - table creation => 
+* data types (int or varchar() )
+* must have primary key 
+* EX 
+create table mohamed 
+(
+key int primary key ,
+name varchar(255),
+tel varchar(100),
+dob int 
+);
+----------DML---------------
+9 - add data to a table
+* does not dupliacte the primary key 
+* follow the order of the columns in the meta data 
+* EX => insert into table_name (col1,col2,col3,col4) values (val1,val2,val3,val4);
+10- retrive data => select columns_names or * from table_name (where condition) optional
+## if we write the from wrong it handel two errors but i mix the if conditions to handle one error  
+-11 update value in a table => update table_name set col_name=value where condition
+## if the user in the condition type a condition does not exist the update run normal but without any update of table 
+12- delete record from table => delete from table_name where condition
+## if the user in the condition type a condition does not exist the delete run normal but without any delete of table
