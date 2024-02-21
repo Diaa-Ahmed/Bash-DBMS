@@ -58,6 +58,13 @@ Check_update(){
 
     if [ -f databases/$connected/$table ];then
 
+    #initialize variables
+    
+    cond_cols=""
+    cond_cols_values=""
+    update_cols=""
+    update_cols_values=""
+    
     # create a Look up table for col and their order in table
 
     declare -A lookup_table
@@ -202,6 +209,10 @@ check_delete(){
              > databases/$connected/$table ;
             return 0;
         fi
+        
+    #initialize target_cols and cols_values
+    target_cols=""
+    cols_values=""
     # create a Look up table for col and their order in table
 
     declare -A lookup_table
