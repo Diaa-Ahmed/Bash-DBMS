@@ -1,0 +1,3 @@
+id:int:primary key
+name:varchar(100):
+dob:varchar(200):

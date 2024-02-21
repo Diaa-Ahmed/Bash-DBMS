@@ -1,0 +1,2 @@
+track:varchar(255):primary key
+intake:int:
