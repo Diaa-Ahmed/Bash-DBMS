@@ -20,11 +20,9 @@ Check_insert(){
     done < "$column_names_file"
 
     if [[ $columns_count -ne $values_count && $columns_count -gt 0 ]]; then
-    	echo "Error: Number of columns do not match number of values."
     	zenity --notification --window-icon="ERROR" --text="Number of columns does not match number of values!"
     	return 1
     elif [[ $count2 -eq 0 && $columns_count -gt 0 ]]; then
-    	echo "Error: Columns do not match the meta data!"
     	zenity --notification --window-icon="ERROR" --text="Columns order does not match the meta data!"
     	return 1
     else 
@@ -39,7 +37,6 @@ Check_update(){
     
     if [[ ! $@ =~ $pattern ]]; 
     then
-        echo "Wrong Syntax"
         zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
         return 1;
     fi
@@ -93,14 +90,12 @@ Check_update(){
         ## check if column exist
         flag=${lookup_table[$key]};
         if [ -z $flag ]; then
-            echo "column doesn't exist"
             zenity --notification --window-icon="ERROR" --text="Column '$key' Doesn't Exist"
             return 1;
         else
             ## check datatype 
             type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
             if [ ! $type_meta = $type ];then
-                echo "Datatype doesn't match for column '$key'"
                 zenity --notification --window-icon="ERROR" --text="Datatype Doesn't Match For Column '$key'"
                 return 1;
             fi
@@ -131,14 +126,12 @@ Check_update(){
         ## check if column exist
         flag=${lookup_table[$key]};
         if [ -z $flag ]; then
-            echo "column doesn't exist"
             zenity --notification --window-icon="ERROR" --text="Column '$key' Doesn't Exist"
             return 1;
         else
             ## check datatype 
             type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
             if [ ! $type_meta = $type ];then
-                echo "Datatype doesn't match for column '$key'"
                 zenity --notification --window-icon="ERROR" --text="Datatype Doesn't Match For Column '$key'"
                 return 1;
             fi
@@ -153,31 +146,47 @@ Check_update(){
     update_cols="${update_cols%?}"
 
     # Update records 
-    awk -v cond_cols="$cond_cols" -v cond_cols_values="$cond_cols_values" -v update_cols="$update_cols" -v update_cols_values="$update_cols_values" 'BEGIN{FS=":"; OFS=":"}
-    {
-        split(cond_cols, cols, " ");
-        split(cond_cols_values, vals, " ");
-
-        split(update_cols, upcol, " ");
-        split(update_cols_values, upvals, " ");
-
-        match_count = 0;
-        for (i = 1; i <= length(cols); i++) {
-            if ($cols[i] == vals[i]) {
-                match_count++;
-            }
-        }
-        if (match_count == length(cols))
-        {
-            for (i = 1; i <= length(upcol); i++) {
-               $upcol[i] = upvals[i];
-            }
-        }
-        print
-    }' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
-    return 0;
+	    awk -v cond_cols="$cond_cols" -v cond_cols_values="$cond_cols_values" -v  update_cols="$update_cols" -v update_cols_values="$update_cols_values" 'BEGIN {
+	    FS=":"
+	    OFS=":"
+	    count=0
+	    split(cond_cols, cols, " ")
+	    split(cond_cols_values, vals, " ")
+	    split(update_cols, upcol, " ")
+	    split(update_cols_values, upvals, " ")
+	}
+	{
+	    match_count = 0
+	    for (i = 1; i <= length(cols); i++) {
+		if ($cols[i] == vals[i]) {
+		    match_count++
+		}
+	    }
+	    if (match_count == length(cols)) {
+		for (i = 1; i <= length(upcol); i++) {
+		    $(upcol[i]) = upvals[i]
+		}
+		count++
+	    }
+	    print
+	}
+	END {
+	    if (count == 0) {
+	      system("echo '0' > counter");
+	    }
+	    else
+	    {
+	      system("echo '1' > counter");
+	    }
+	}' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
+   
+	    counter=$(<counter)
+	    if [ $counter -eq 0 ]; then
+	  	  return 5 
+	    else
+	    	return 0;
+	    fi
     else
-        echo "table doesn't exist"
         zenity --notification --window-icon="ERROR" --text="Table '$table' Doesn't Exist"
         return 1;
     fi
@@ -188,7 +197,7 @@ check_delete(){
     pattern="delete[[:space:]]+from[[:space:]]+[[:alpha:]]+([[:space:]]+where[[:space:]]+[[:alpha:]_]+=([0-9]+|'[[:alnum:]_ ]+')([[:space:]]+(and|or)[[:space:]]+[[:alpha:]]+=('[[:alnum:]_ ]+'|[0-9]+))*[[:space:]]*)?;?"
     if [[ ! $@ =~ $pattern ]]; 
     then
-        echo "Wrong Syntax"
+
         zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
         return 1;
     fi
@@ -241,14 +250,12 @@ check_delete(){
         ## check if column exist
         flag=${lookup_table[$key]};
         if [ -z $flag ]; then
-            echo "column doesn't exist"
             zenity --notification --window-icon="ERROR" --text="Column '$key' doesn't exist"
             return 1;
         else
             ## check datatype 
             type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
             if [ ! $type_meta = $type ];then
-                echo "Datatype doesn't match for column '$key'"
                 zenity --notification --window-icon="ERROR" --text="Datatype doesn't match for column '$key'"
                 return 1;
             fi
@@ -263,7 +270,7 @@ check_delete(){
     target_cols="${target_cols%?}"
 
     # delete records 
-    awk -v target_cols="$target_cols" -v cols_values="$cols_values" 'BEGIN{FS=":"; OFS=":"}
+    awk -v target_cols="$target_cols" -v cols_values="$cols_values" 'BEGIN{FS=":"; OFS=":";count=0}
     {
         split(target_cols, cols, " ");
         split(cols_values, vals, " ");
@@ -275,10 +282,25 @@ check_delete(){
         }
         if (match_count != length(cols))
             print
-    }' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
-	return 0;
+        else
+           count++;
+    }END {
+	    if (count == 0) {
+	      system("echo '0' > counter");
+	    }
+	    else
+	    {
+	      system("echo '1' > counter");
+	    }
+	}' "databases/$connected/$table" > "databases/$connected/$table.tmp" && mv "databases/$connected/$table.tmp" "databases/$connected/$table"
+	
+	counter=$(<counter)
+	    if [ $counter -eq 0 ]; then
+	  	  return 5 
+	    else
+	    	return 0;
+	    fi
     else
-        echo "table doesn't exist"
         zenity --notification --window-icon="ERROR" --text="Table '$table' Doesn't Exist"
         return 1;
     fi
@@ -321,7 +343,6 @@ check_select(){
     matched_part=$(echo "$@" | grep -oE "$pattern")
     if [[ ! $@ =~ $pattern ]]; 
     then
-        echo "Wrong Syntax"
         zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
 
     # check if the pattern in fully matched not partially
@@ -364,14 +385,12 @@ check_select(){
         ## check if column exist
         flag=${lookup_table[$key]};
         if [ -z $flag ]; then
-            echo "column doesn't exist"
             zenity --notification --window-icon="ERROR" --text="Column '$key' Doesn't Exist"
             
         else
             ## check datatype 
             type_meta=$(echo "${lookup_table[$key]}" | awk -F ':' '{print $2}'| awk -F '(' '{print $1}')
             if [ ! $type_meta = $type ];then
-                echo "Datatype doesn't match for column '$key'"
                 zenity --notification --window-icon="ERROR" --text="Datatype doesn't match for column '$key'"
             fi
             ####
@@ -389,7 +408,6 @@ check_select(){
             col=$(echo "$col" | awk '{$1=$1};1')
             flag=${lookup_table[$col]}
             if [ -z "$flag" ]; then
-                echo "column doesn't exist"
                 zenity --notification --window-icon="ERROR" --text="Column '$col' Doesn't Exist"
             fi
             val=$(echo "$flag" | awk -F ':' '{print $1}')
@@ -455,12 +473,9 @@ check_select(){
     	columns=$all_cols;
     fi
     
-    echo $columns 
-    echo $output
     print_data $columns $output
     ######################################
     else
-        echo "table doesn't select exist"
         zenity --notification --window-icon="ERROR" --text="Table '$table' Doesn't Exist"
     fi
 }
@@ -479,7 +494,6 @@ if [ -z $connected ]
 
 		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f3 )
 		if [[ ! $@ =~ $pattern ]]; then	
-	         	echo "Doesn't Match"
 	         	zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
 	         	echo "Failed To Insert Into Table!" | zenity --text-info --title="ERROR" \
 	      	    		--height 400 --width 600 --font="Arial 20"
@@ -489,11 +503,9 @@ if [ -z $connected ]
 	        else 
 	        	Check_insert $@ ;
 	         	if [ $? -eq 0 ]; then
-		     		echo "Inserted Successfully"
 		     		echo "Inserted Successfully!" | zenity --text-info --title="Successful" \
 	      			--height 400 --width 600 --font="Arial 20"
 		 	else 
-		     		echo "Failed To Insert"
 		     		echo "Failed To Insert" | zenity --text-info --title="ERROR" \
 	      			--height 400 --width 600 --font="Arial 20"		
 		 	fi  
@@ -507,21 +519,23 @@ if [ -z $connected ]
     		table_name=$(echo -e "$@" | tr '\n' ' '| cut -d ' ' -f2 )
     		echo $table_name
 		if [[ ! $@ =~ $pattern ]]; then	
-	         	echo "Doesn't Match"
 	         	zenity --notification --window-icon="ERROR" --text="Wrong Statement! Syntax ERROR"
 	         	echo "Failed To Update Table!" | zenity --text-info --title="ERROR" \
 	      	    		--height 400 --width 600 --font="Arial 20"
 	      	elif [ ! -f $"databases/$connected/$table_name" ]; then
-		 	echo "Table Does not Exists"
+	
 	         	zenity --notification --window-icon="ERROR" --text="Table Does Not Exists"
 	        else 
 	        	Check_update $@ ;
-	         	if [ $? -eq 0 ]; then
-		     		echo "Updated Successfully"
+	        	update_return=$?;
+	         	if [ $update_return -eq 0 ]; then
 		     		echo "Updated Successfully!" | zenity --text-info --title="Successful" \
 	      			--height 400 --width 600 --font="Arial 20"
-		 	else 
-		     		echo "Failed To Update"
+		 	elif [ $update_return -eq 5 ]
+		 	then
+		 		echo "No Row Affected!" | zenity --text-info --title="Information" \
+	      			--height 400 --width 600 --font="Arial 20"
+		 	else
 		     		echo "Failed To Update" | zenity --text-info --title="ERROR" \
 	      			--height 400 --width 600 --font="Arial 20"		
 		 	fi 
@@ -529,12 +543,15 @@ if [ -z $connected ]
     		;;
     	"delete from "*)
     		check_delete $@
-    		if [ $? -eq 0 ]; then
-		     		echo "Deleted Successfully"
+    		delete_return=$?;
+    		if [ $delete_return -eq 0 ]; then
 		     		echo "Deleted Successfully!" | zenity --text-info --title="Successful" \
 	      			--height 400 --width 600 --font="Arial 20"
-		 	else 
-		     		echo "Failed To Deleted"
+		 	elif [ $delete_return -eq 5 ]
+		 	then
+		 		echo "No Row Affected!" | zenity --text-info --title="Information" \
+	      			--height 400 --width 600 --font="Arial 20"
+		 	else
 		     		echo "Failed To Deleted" | zenity --text-info --title="ERROR" \
 	      			--height 400 --width 600 --font="Arial 20"		
 		 	fi 

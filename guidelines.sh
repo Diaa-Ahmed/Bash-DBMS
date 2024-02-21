@@ -11,7 +11,6 @@ zenity --text-info \
     --modal
 
 if [ $? -eq 0 ]; then
-    echo "User clicked Proceed"
     ./main.sh
 else
     echo "Canceled"

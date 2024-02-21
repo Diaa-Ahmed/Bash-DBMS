@@ -15,6 +15,7 @@ do
     fi
     
 # Replace '*' with 'all'
+
 result=${result//\*/all} 
 
 case "${result,,}" in

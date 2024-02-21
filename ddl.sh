@@ -82,6 +82,7 @@ else
 		     echo "Failed To Create Table!" | zenity --text-info --title="ERROR" \
 	      		--height 400 --width 600 --font="Arial 20"		
 		 fi   
+		 
 	    fi	
             ;;
          "drop table "*)
@@ -108,7 +109,7 @@ else
             # shopt -s extglob # Enable extended pattern matching
             # list all files in database dir
             tables=$(ls databases/$connected/ ) #!(*_meta) | xargs -n1 basename)
-            echo $tables
+           
             # Display dialog with databases
             echo "$tables" | zenity --text-info --title="Tables" \
             --height 400 --width 600 --font="Arial 20"

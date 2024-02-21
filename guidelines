@@ -1,21 +1,29 @@
 Guidelines:
-- Username should be between 4 to 10 characters.
-- Password should be at least 8 characters long.
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
-
+-----------Main---------
+1 - list all databases => show databases ;
+2 - to add database => create database db_name ;
+3 - to delete database => drop database db_name ; 
+4 - must connect to database before any ddls and dmls
+5 - to connect to database => use db_name ;
+----------DDL--------------
+6 - list all tables in database => show tables ;
+7 - to delete a table => drop table table_name ;
+8 - table creation => 
+* data types (int or varchar() )
+* must have primary key 
+* Ex =>
+create table mohamed 
+(
+key int primary key ,
+name varchar(255),
+tel varchar(100),
+dob int 
+);
+----------DML---------------
+9 - add data to a table
+* does not dupliacte the primary key 
+* follow the order of the columns in the meta data 
+* EX => insert into table_name (col1,col2,col3,col4) values (val1,val2,val3,val4);
+10- retrive data => select columns_names or * from table_name (where condition) optional
+11- update value in a table => update table_name set col_name=value where condition
+12- delete record from table => delete from table_name where condition
