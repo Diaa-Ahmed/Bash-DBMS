@@ -7,6 +7,7 @@ user_info=$(zenity --forms --title="Login" \
     --add-password="             	        Password     		     " \
     --width=600 --height=450)
 
+
 username=$(echo "$user_info" | cut -d '|' -f 1)
 password=$(echo "$user_info" | cut -d '|' -f 2)
 
